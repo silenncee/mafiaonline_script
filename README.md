@@ -1,2 +1,4 @@
 # mafiaonline_script
-scripts for mafiaonline 
+#scripts for mafiaonline 
+#installing:
+pip install mafiaonline.py
