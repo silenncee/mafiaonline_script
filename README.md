@@ -1,9 +1,9 @@
-# mafiaonline_script
-<p>#scripts for mafiaonline </p>
-<b><h1>#INSTALL</h1></b>
-<br>
+# script by mafia online
+___
+## **Install**
 
+```bash
 git clone https://github.com/Zakovskiy/mafiaonline.py
-
-
-
+```
+## tg:
+### [Teabot](https://t.me/TeaBot_maf)
