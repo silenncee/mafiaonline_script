@@ -448,118 +448,157 @@ def verify_email(html: str) -> bool:
         print(f"Ошибка при верификации email: {str(e)}")
         return False
 
+def save_account_data(email: str, nick: str, password: str):
+    accounts_file = "accounts.json"
+    try:
+        # Загружаем существующие данные
+        if os.path.exists(accounts_file):
+            with open(accounts_file, 'r', encoding='utf-8') as f:
+                accounts = json.load(f)
+        else:
+            accounts = []
+
+        # Добавляем новый аккаунт
+        account_data = {
+            "email": email,
+            "nickname": nick,
+            "password": password,
+            "created_at": datetime.now().isoformat()
+        }
+        accounts.append(account_data)
+
+        # Сохраняем обновленные данные
+        with open(accounts_file, 'w', encoding='utf-8') as f:
+            json.dump(accounts, f, ensure_ascii=False, indent=2)
+            
+        print(f"💾 Данные сохранены в {accounts_file}")
+    except Exception as e:
+        print(f"❌ Ошибка сохранения данных: {str(e)}")
+
+def generate_unique_nick():
+    # Список коротких префиксов
+    prefixes = ['x', 'z', 'q', 'v', 'w', 'y', 'j', 'k']
+    # Список коротких суффиксов
+    suffixes = ['a', 'e', 'i', 'o', 'u']
+    # Список цифр
+    numbers = ['1', '2', '3', '4', '5']
+    
+    # Генерируем случайный ник
+    prefix = random.choice(prefixes)
+    suffix = random.choice(suffixes)
+    number = random.choice(numbers)
+    
+    return f"{prefix}{suffix}{number}"
+
 def create_single_account(proxy_manager: Optional[ProxyManager] = None):
     try:
-        print("\n1. Генерация email...")
+        print("\n1. Генерация email...", end='\r')
         email = Email()
         client = UClient(proxy_manager)
-        
-        nick = ''.join(random.choices(string.ascii_letters + string.digits, k=7))
-        password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
 
-        
-        print(f"\n2. Создание аккаунта: {nick} : {password}")
+        # Генерируем короткий ник
+        nick = generate_unique_nick()
+        password = "vvvvvviiiii"
 
-        print("3. Отправка запроса на создание аккаунта...")
+        print(f"\n2. Создание аккаунта: {nick}", end='\r')
+
+        print("3. Отправка запроса на создание аккаунта...", end='\r')
         try:
             result = client.create_account(email=email.email, password=password)
             if not result:
                 print("❌ Ошибка: Нет ответа от сервера")
                 return False
-                
+
             if not result.get("o", False):
                 error_msg = result.get("error", "Неизвестная ошибка")
-                print(f"❌ Ошибка при создании аккаунта: {error_msg}")
+                print(f"❌ Ошибка: {error_msg}")
                 if "TOO_MANY_REQUESTS" in error_msg:
                     wait_time = int(result.get("data", 60))
-                    print(f"⏳ Сервер просит подождать {wait_time} секунд...")
+                    print(f"⏳ Ожидание {wait_time}с...", end='\r')
                     time.sleep(wait_time + 2)
                 return False
-                
-            print("✅ Аккаунт успешно создан")
+
+            print("✅ Аккаунт создан", end='\r')
         except Exception as e:
-            print(f"❌ Ошибка при отправке запроса: {str(e)}")
+            print(f"❌ Ошибка запроса: {str(e)}")
             return False
 
-        print("4. Вход в аккаунт...")
+        print("4. Вход в аккаунт...", end='\r')
         try:
             if not client.sign_in_new_account(email=email.email, password=password, nickname=nick):
-                print("❌ Ошибка при входе в аккаунт")
+                print("❌ Ошибка входа")
                 return False
-            print("✅ Успешный вход в аккаунт")
+            print("✅ Вход выполнен", end='\r')
         except Exception as e:
-            print(f"❌ Ошибка при входе: {str(e)}")
+            print(f"❌ Ошибка входа: {str(e)}")
             return False
 
-        print("5. Ожидание письма верификации...")
-        max_attempts = 30
+        print("5. Ожидание верификации...", end='\r')
+        max_attempts = 20
         attempt = 0
         while attempt < max_attempts:
             try:
                 messages = email.get_messages()
                 if not messages:
                     if attempt % 5 == 0:
-                        print(f"⏳ Ожидание письма... Попытка {attempt + 1}/{max_attempts}")
+                        print(f"⏳ Ожидание... {attempt + 1}/{max_attempts}", end='\r')
                     attempt += 1
-                    time.sleep(2)
+                    time.sleep(1)
                     continue
 
                 for msg in messages:
                     if msg['from'] == '"Мафия Онлайн" <mafia@mail.dottap.com>':
-                        print("6. Письмо получено, верификация...")
+                        print("6. Верификация...", end='\r')
                         message_content = email.get_message(msg['messageID'])
                         if verify_email(message_content):
-                            print("\n✅ Аккаунт успешно создан и верифицирован")
-                            print(f"📧 Email: {email.email}")
-                            print(f"👤 Логин: {nick}")
-                            print(f"🔑 Пароль: {password}")
+                            print("\n✅ Аккаунт создан и верифицирован")
+                            print(f"📧 {email.email}")
+                            print(f"👤 {nick}")
+                            print(f"🔑 {password}")
+                            
+                            # Сохраняем данные аккаунта
+                            save_account_data(email.email, nick, password)
+                            
                             return True
                         else:
-                            print("❌ Ошибка при верификации email")
+                            print("❌ Ошибка верификации")
                             return False
-                
-                if attempt % 5 == 0:
-                    print(f"⏳ Ожидание письма... Попытка {attempt + 1}/{max_attempts}")
+
                 attempt += 1
-                time.sleep(2)
+                time.sleep(1)
             except Exception as e:
-                print(f"❌ Ошибка при проверке почты: {str(e)}")
-                time.sleep(2)
-        
-        print("❌ Превышено время ожидания письма верификации")
+                print(f"❌ Ошибка проверки: {str(e)}")
+                time.sleep(1)
+
+        print("❌ Таймаут верификации")
         return False
     except Exception as e:
-        print(f"❌ Критическая ошибка: {str(e)}")
+        print(f"❌ Ошибка: {str(e)}")
         return False
 
 def main():
-    # Инициализация менеджера прокси
     proxy_manager = ProxyManager()
-    
     account_counter = 0
+    
+    print("🚀 Запуск регистрации аккаунтов...")
+    print("=" * 40)
+    
     while True:
         try:
-            print(f"\n{'='*50}")
-            print(f"Создание аккаунта #{account_counter + 1}")
-            print(f"{'='*50}")
-            
             if create_single_account(proxy_manager):
                 account_counter += 1
-                print(f"\n✅ Успешно создано аккаунтов: {account_counter}")
-                delay = random.uniform(5, 10)
-                print(f"⏳ Ожидание {delay:.1f} секунд перед следующей регистрацией...")
+                print(f"\n✅ Создано: {account_counter}")
+                delay = random.uniform(3, 5)  # Уменьшаем задержку
                 time.sleep(delay)
             else:
-                print("❌ Не удалось создать аккаунт, пробуем снова...")
-                time.sleep(5)
-                
+                time.sleep(3)  # Уменьшаем время ожидания при ошибке
+
         except KeyboardInterrupt:
-            print("\n🛑 Программа остановлена пользователем")
-            print(f"📊 Всего создано аккаунтов: {account_counter}")
+            print(f"\n🛑 Остановлено. Создано: {account_counter}")
             break
         except Exception as e:
-            print(f"❌ Критическая ошибка: {str(e)}")
-            time.sleep(5)
+            print(f"❌ Ошибка: {str(e)}")
+            time.sleep(3)
 
 if __name__ == "__main__":
     main()
